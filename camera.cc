@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <opencv2/highgui/highgui.hpp>
+#include "opencv2/opencv.hpp"
 
 #include "mynteye/logger.h"
 #include "mynteye/api/api.h"
@@ -80,30 +81,73 @@ int main(int argc, char *argv[]) {
 
   std::size_t motion_count = 0;
   auto &&time_beg = times::now();
+
+  cv::HOGDescriptor hog;
+  hog.setSVMDetector(cv::HOGDescriptor::getDefaultPeopleDetector());
+
+
+  // cv::VideoWriter video("outcpp.avi", cv::VideoWriter::fourcc('M','J','P','G'),10, cv::Size(left_data.frame->width(),left_data.frame->height()));
+    cv::VideoWriter video("outcpp1.avi", cv::VideoWriter::fourcc('M','J','P','G'),28, cv::Size(752,480),true);
   while (true) {
     api->WaitForStreams();
 
     // auto &&left_data = api->GetStreamData(Stream::LEFT);
-    // auto &&right_data = api->GetStreamData(Stream::RIGHT);
+    auto &&right_data = api->GetStreamData(Stream::RIGHT);
     auto &&left_data = api->GetStreamData(Stream::LEFT_RECTIFIED);
-    auto &&right_data = api->GetStreamData(Stream::RIGHT_RECTIFIED);
+    // auto &&right_data = api->GetStreamData(Stream::RIGHT_RECTIFIED);
     if (!left_data.frame.empty() && !right_data.frame.empty()) {
       cv::Mat img;
-      cv::hconcat(left_data.frame, right_data.frame, img);
-      cv::imshow("frame", img);
+      // cv::hconcat(left_data.frame, right_data.frame, img);
+      // cv::imshow("frame", img);
+
+      cv::imshow("frame", left_data.frame);
+
+      std::vector<cv::Rect> found;
+      std::vector<double> weights;
+
+      cv::equalizeHist(left_data.frame, img);
+      hog.detectMultiScale(img, found, weights);
+      for( size_t i = 0; i < found.size(); i++ )
+        {
+            cv::Rect r = found[i];
+            rectangle(img, found[i], cv::Scalar(0,0,255), 3);
+        }
+      cv::imshow("frame_hist & detection", img);
+
+
+      // cv::blur(left_data.frame, img, cv::Size(5,5));
+      // cv::imshow("frame_blur", img);
+
+      // cv::resize(img,img, cv::Size(img.cols/4, img.rows /4 ));
+      // cv::resize(img,img, cv::Size(img.cols*4, img.rows *4 ));
+      // cv::imshow("frame_resize", img);
+
+
+      // cv::cvtColor(left_data.frame, img, cv::COLOR_GRAY2RGB);   // SUCCESSFULL :P
+      // video.write(img);
+
+      // img = frame2mat(left_data.frame);
+
+      LOG(INFO) << "Image width: " << left_data.frame.size().width
+               << ", height: " << (left_data.frame.size().height);
     }
 
-    auto &&disp_data = api->GetStreamData(Stream::DISPARITY_NORMALIZED);
+    // left_data.frame->width();
+    // Frame.
+
+    api->GetOptionValue(Option::FRAME_RATE);
+
+/*     auto &&disp_data = api->GetStreamData(Stream::DISPARITY_NORMALIZED);
     if (!disp_data.frame.empty()) {
       cv::imshow("disparity", disp_data.frame);  // CV_8UC1
     }
-
-    auto &&depth_data = api->GetStreamData(Stream::DEPTH);
+ */
+/*     auto &&depth_data = api->GetStreamData(Stream::DEPTH);
     if (!depth_data.frame.empty()) {
       cv::imshow("depth", depth_data.frame);  // CV_16UC1
     }
-
-    auto &&motion_datas = api->GetMotionDatas();
+ */
+/*     auto &&motion_datas = api->GetMotionDatas();
     motion_count += motion_datas.size();
     for (auto &&data : motion_datas) {
       LOG(INFO) << "Imu frame_id: " << data.imu->frame_id
@@ -116,7 +160,7 @@ int main(int argc, char *argv[]) {
                 << ", gyro_z: " << data.imu->gyro[2]
                 << ", temperature: " << data.imu->temperature;
     }
-
+ */
     char key = static_cast<char>(cv::waitKey(1));
     if (key == 27 || key == 'q' || key == 'Q') {  // ESC/Q
       break;
